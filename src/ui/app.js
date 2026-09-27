@@ -248,6 +248,11 @@ export class App {
 
     status.textContent = text;
     status.hidden = Boolean(thinker);
+    // En solo, les IA peuvent jouer sans temps de réflexion jusqu'à ce que ce
+    // soit de nouveau au joueur, ou jusqu'à la fin de la main s'il est couché.
+    const botsPlaying =
+      (view.phase === 'betting' && view.toAct !== view.viewer) || view.phase === 'between';
+    this.$('btn-skip').hidden = !(this.mode === 'solo' && botsPlaying && !this.director?.hurrying);
     thinking.hidden = !thinker;
     if (thinker) this.$('thinking-label').textContent = `${thinker} réfléchit`;
   }
@@ -324,11 +329,36 @@ export class App {
         const worth = equity >= needed;
         html += ` · il faut <span class="${worth ? 'good' : 'bad'}">${Math.round(needed * 100)}&nbsp;%</span>`;
       }
-      const advice = legal ? advise({ equity, opponents, pot: view.pot, legal }) : null;
+      const advice = legal ? advise(this.adviceSituation(view, equity, opponents, legal)) : null;
       this.hintCache = { key, html, advice };
     }
     text.innerHTML = this.hintCache.html;
     showAdvice(this.hintCache.advice);
+  }
+
+  /** Ce que le conseil doit savoir de la table, vu depuis le siège du joueur. */
+  adviceSituation(view, equity, opponents, legal) {
+    const [smallBlind, bigBlind] = view.blinds;
+    const me = view.seats[view.viewer];
+    const limpers =
+      view.street === 'preflop' && view.currentBet <= bigBlind
+        ? view.seats.filter(
+            (seat, index) => index !== view.viewer && index !== view.bbSeat && seat.inHand && seat.bet === bigBlind,
+          ).length
+        : 0;
+    return {
+      equity,
+      opponents,
+      pot: view.pot,
+      legal,
+      currentBet: view.currentBet,
+      bigBlind,
+      smallBlind,
+      street: view.street,
+      myBet: me.bet,
+      myStack: me.stack,
+      limpers,
+    };
   }
 
   renderActions(view) {
@@ -402,8 +432,10 @@ export class App {
     if (!legal?.canRaise) return;
     this.raiseOpen = true;
     const presets = this.presets(view, legal);
-    // Par défaut, un montant raisonnable : ×2,5 avant le flop, ½ pot ensuite.
-    this.raiseAmount = presets[view.street === 'preflop' ? 0 : Math.min(1, presets.length - 1)][1];
+    // Par défaut, le montant conseillé quand l'aide est allumée ; sinon un
+    // montant raisonnable : ×2,5 avant le flop, ½ pot ensuite.
+    const advised = this.prefs.hint && this.hintCache.advice?.action === 'raise' ? this.hintCache.advice.amount : null;
+    this.raiseAmount = advised ?? presets[view.street === 'preflop' ? 0 : Math.min(1, presets.length - 1)][1];
     this.$('raise-panel').hidden = false;
     this.renderActions(view);
   }
@@ -537,6 +569,7 @@ export class App {
     this.$('raise-less').addEventListener('click', () => this.setRaise(this.raiseAmount - this.view.blinds[1]));
     this.$('raise-more').addEventListener('click', () => this.setRaise(this.raiseAmount + this.view.blinds[1]));
     this.$('btn-next').addEventListener('click', () => this.director?.nextHand());
+    this.$('btn-skip').addEventListener('click', () => this.director?.hurry());
 
     this.$('btn-hint').addEventListener('click', () => {
       this.prefs.hint = !this.prefs.hint;

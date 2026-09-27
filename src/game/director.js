@@ -14,6 +14,9 @@ import { Table } from '../core/table.js';
 export const CLOCK_MS = 30000;
 export const AWAY_CLOCK_MS = 8000;
 
+/** Le même rythme quand le joueur demande d'accélérer : à peine de quoi voir passer les coups. */
+const HURRY = { think: 120, street: 300 };
+
 const PACE = {
   /** Réflexion d'une IA, en millisecondes : base plus une part au hasard. */
   think: [650, 900],
@@ -46,6 +49,8 @@ export class Director {
     this.deadline = 0;
     this.clockTotal = 0;
     this.stopped = false;
+    /** Les IA jouent sans attendre, jusqu'au tour d'un humain ou à la fin de la main. */
+    this.hurrying = false;
   }
 
   get finished() {
@@ -69,12 +74,17 @@ export class Director {
     this.clockSeat = -1;
     const { table } = this;
 
+    if (table.phase === 'handOver' || (table.phase === 'betting' && table.seats[table.toAct].kind !== 'ai')) {
+      this.hurrying = false;
+    }
+
     switch (table.phase) {
       case 'betting': {
         const seat = table.seats[table.toAct];
         if (seat.kind === 'ai') {
           const [base, spread] = PACE.think;
-          this.timer = setTimeout(() => this.playAi(), base + Math.random() * spread);
+          const delay = this.hurrying ? HURRY.think : base + Math.random() * spread;
+          this.timer = setTimeout(() => this.playAi(), delay);
         } else if (this.clock) {
           this.startClock(table.toAct);
         }
@@ -84,7 +94,7 @@ export class Director {
         this.timer = setTimeout(() => {
           table.nextStreet();
           this.step();
-        }, table.isRunout ? PACE.runout : PACE.street);
+        }, this.hurrying ? HURRY.street : table.isRunout ? PACE.runout : PACE.street);
         break;
       case 'handOver':
         if (!this.finished) {
@@ -140,6 +150,19 @@ export class Director {
     this.lastTimeout = timedOut ? seatIndex : -1;
     this.step();
     return true;
+  }
+
+  /**
+   * Fait jouer les IA sans temps de réflexion, jusqu'à ce qu'un humain ait la
+   * parole ou que la main se termine.
+   */
+  hurry() {
+    const { table } = this;
+    if (this.stopped || this.hurrying) return;
+    const waitingOnAi = table.phase === 'betting' && table.seats[table.toAct].kind === 'ai';
+    if (!waitingOnAi && table.phase !== 'between') return;
+    this.hurrying = true;
+    this.step();
   }
 
   /** Passe à la main suivante sans attendre la fin de la pause. */
