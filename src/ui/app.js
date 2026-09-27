@@ -12,6 +12,7 @@
  */
 import { parseCards } from '../core/cards.js';
 import { LEVELS, estimateEquity } from '../core/ai.js';
+import { advise } from '../core/advice.js';
 import { MAX_SEATS, Table } from '../core/table.js';
 import { Director } from '../game/director.js';
 import {
@@ -280,16 +281,35 @@ export class App {
     this.renderHint(view, hole && !me.folded ? hole : null);
   }
 
-  /** Conseil, en solo : chances de l'emporter et cote du pot. */
+  /**
+   * Aide, en solo : chances de l'emporter, cote du pot, et quand c'est à
+   * nous de parler, le coup conseillé avec sa raison.
+   */
   renderHint(view, hole) {
     const button = this.$('btn-hint');
+    const adviceBox = this.$('advice');
     const available = this.mode === 'solo' && hole && view.phase !== 'handOver' && view.phase !== 'gameOver';
     button.hidden = !available;
-    if (!available) return;
+    // Le texte du conseil, et le bouton correspondant mis en valeur.
+    const buttonFor = { fold: 'btn-fold', check: 'btn-call', call: 'btn-call', raise: 'btn-raise' };
+    const showAdvice = (advice) => {
+      adviceBox.hidden = !advice;
+      adviceBox.innerHTML = advice
+        ? `<strong>Conseil : ${advice.label.toLowerCase()}.</strong> ${escapeHtml(advice.reason)}`
+        : '';
+      for (const id of new Set(Object.values(buttonFor))) {
+        this.$(id).classList.toggle('advised', Boolean(advice) && buttonFor[advice.action] === id);
+      }
+    };
+    if (!available) {
+      showAdvice(null);
+      return;
+    }
     button.classList.toggle('shown', this.prefs.hint);
     const text = this.$('hint-text');
     if (!this.prefs.hint) {
       text.textContent = 'Mes chances';
+      showAdvice(null);
       return;
     }
 
@@ -298,15 +318,17 @@ export class App {
     const key = `${hole.join()}|${view.board.join()}|${opponents}|${legal?.toCall ?? ''}`;
     if (this.hintCache.key !== key) {
       const equity = estimateEquity({ hole, board: view.board, opponents, sims: 3000 });
-      let html = `Chances <strong>${Math.round(equity * 100)} %</strong>`;
+      let html = `Chances <strong>${Math.round(equity * 100)}&nbsp;%</strong>`;
       if (legal && legal.toCall > 0) {
         const needed = legal.toCall / (view.pot + legal.toCall);
         const worth = equity >= needed;
-        html += ` · il faut <span class="${worth ? 'good' : 'bad'}">${Math.round(needed * 100)} %</span>`;
+        html += ` · il faut <span class="${worth ? 'good' : 'bad'}">${Math.round(needed * 100)}&nbsp;%</span>`;
       }
-      this.hintCache = { key, html };
+      const advice = legal ? advise({ equity, opponents, pot: view.pot, legal }) : null;
+      this.hintCache = { key, html, advice };
     }
     text.innerHTML = this.hintCache.html;
+    showAdvice(this.hintCache.advice);
   }
 
   renderActions(view) {

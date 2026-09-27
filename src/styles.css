@@ -1415,6 +1415,20 @@ svg {
 
 #btn-fold { color: var(--danger); }
 
+/* Le coup conseillé, quand l'aide est allumée : un liseré doré. */
+.actions .btn.advised:not(:disabled) {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgb(216 179 92 / 0.35);
+}
+
+.advice {
+  margin: -2px 4px 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
+.advice strong { color: var(--gold); font-weight: 650; }
+
 .raise-panel {
   display: flex;
   flex-direction: column;
