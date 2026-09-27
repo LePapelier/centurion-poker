@@ -1,0 +1,1653 @@
+/* ------------------------------------------------------------------ */
+/* Socle                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Cinzel (licence OFL, voir public/fonts/OFL-Cinzel.txt), réduite à
+   l'alphabet français et servie avec le site : aucun appel extérieur. */
+@font-face {
+  font-family: 'Cinzel';
+  src: url('/fonts/cinzel.woff') format('woff');
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+:root {
+  /* Feutre de table de jeu, comme au Scrabble. L'accent d'identité est le
+     même rouge ; le vert signale ce qui se joue. */
+  --bg: #0b2419;
+  --felt: #16432f;
+  --surface: rgb(3 16 10 / 0.45);
+  --surface-2: rgb(3 16 10 / 0.62);
+  --line: rgb(233 223 196 / 0.14);
+  --text: #f2ecdc;
+  --text-dim: #a9bfb1;
+  --accent: #c8412f;
+  --accent-dark: #8f2b1f;
+  --valid: #5fd08f;
+  --valid-dark: #2c7650;
+  --gold: #d8b35c;
+  --danger: #e8874a;
+
+  /* Cartes : face ivoire, deux couleurs d'enseigne. Le dos reprend le rouge
+     d'identité, frappé d'un liseré doré. */
+  --card: #f6eedb;
+  --card-edge: #d9c9a3;
+  --red-suit: #b8322a;
+  --black-suit: #1c1a17;
+  --card-back: #9c2f22;
+
+  /* Jetons de mise. */
+  --chip: #d8b35c;
+  --chip-edge: #8d6a22;
+
+  /* Police d'affichage des scores : empattements classiques, qui évoquent le
+     carnet de score. Uniquement des familles présentes sur le système — le
+     jeu ne doit dépendre d'aucun téléchargement. */
+  --display: 'Cinzel', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+
+  --radius: 8px;
+  --shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Le jeu se manipule au doigt : une pression longue doit saisir un jeton, et
+   jamais sélectionner le plateau comme du texte. Sans quoi le téléphone
+   répond par sa loupe et ses poignées de sélection, et un glissement bleuit
+   la partie entière. Le plateau et le chevalet s'en protégeaient déjà ; la
+   sélection partait d'ailleurs — un score, la ligne d'état — et les traversait. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Reste sélectionnable ce qui se saisit ou se recopie : les champs, et la
+   ligne d'état qui affiche le lien d'invitation quand le presse-papiers est
+   refusé. Le code de partie garde son `user-select: all`, défini plus bas. */
+input,
+textarea,
+.mp-status {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Plusieurs blocs de cette feuille imposent `display: flex`, qui l'emporterait
+   sur la valeur par défaut de l'attribut `hidden`. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  /* Feutre : grain léger par-dessus un éclairage de lampe au centre. */
+  background-color: var(--bg);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0 0 0 -.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(110% 80% at 50% 30%, var(--felt) 0%, #0f3122 55%, var(--bg) 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+svg {
+  width: 1.25em;
+  height: 1.25em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: none;
+  container: entete / inline-size;
+}
+
+/* La marque est composée en jetons, repris des couleurs du plateau. Elle se
+   lit comme un logo : la taille suit la largeur disponible et les valeurs
+   disparaissent quand les jetons deviennent trop petits. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  --brand-card: clamp(13px, 3.3vw, 23px);
+}
+
+.brand-words {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--brand-card) * 0.5);
+}
+
+/* Mascotte. Ses marges négatives la laissent déborder de l'en-tête sans en
+   changer la hauteur, dont dépend la place laissée au plateau. */
+.brand-mascot {
+  flex: none;
+  width: auto;
+  height: 52px;
+  margin-block: -7px;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.45));
+}
+
+.brand-mascot.hop {
+  animation: mascot-hop 0.55s cubic-bezier(0.3, 0.8, 0.4, 1.1);
+}
+
+@keyframes mascot-hop {
+  0% { transform: translateY(0) rotate(0deg) scale(1, 1); }
+  18% { transform: translateY(0) rotate(0deg) scale(1.08, 0.9); }
+  45% { transform: translateY(-8px) rotate(-7deg) scale(0.96, 1.05); }
+  70% { transform: translateY(0) rotate(4deg) scale(1.05, 0.94); }
+  100% { transform: translateY(0) rotate(0deg) scale(1, 1); }
+}
+
+.brand {
+  cursor: pointer;
+  user-select: none;
+}
+
+.brand-word {
+  display: flex;
+  gap: 2px;
+}
+
+/* Petite cascade au clic sur la marque : chaque jeton grossit et oscille,
+   avec un décalage posé en JavaScript qui fait courir la vague. */
+.brand-card.wiggle {
+  animation: brand-wiggle 0.38s cubic-bezier(0.3, 0.8, 0.4, 1.2) backwards;
+}
+
+@keyframes brand-wiggle {
+  0% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.3) rotate(-14deg); }
+  50% { transform: scale(1.22) rotate(11deg); }
+  72% { transform: scale(1.1) rotate(-6deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Chaque lettre est une petite carte à jouer, son enseigne en coin : le
+   rouge des cœurs et des carreaux pour le premier mot, le noir des piques et
+   des trèfles pour le second. */
+.brand-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: calc(var(--brand-card) * 0.78);
+  height: var(--brand-card);
+  border-radius: calc(var(--brand-card) * 0.14);
+  background: linear-gradient(170deg, #fffaf0 0%, var(--card) 70%, var(--card-edge) 100%);
+  font-family: var(--display);
+  font-size: calc(var(--brand-card) * 0.58);
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+
+.brand-card::after {
+  content: attr(data-s);
+  position: absolute;
+  right: 6%;
+  bottom: 1%;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: calc(var(--brand-card) * 0.28);
+  opacity: 0.85;
+}
+
+.brand-word:first-child .brand-card { color: var(--red-suit); }
+.brand-word:last-child .brand-card { color: var(--black-suit); }
+
+/* Quand l'en-tête manque de place, la marque sur une seule ligne obligerait
+   à des jetons minuscules ou déborderait sur les boutons : on empile les deux
+   mots. Le critère est la largeur de l'en-tête, pas celle de la fenêtre — sur
+   grand écran, le panneau latéral lui en prend une bonne part. */
+@container entete (max-width: 620px) {
+  .brand {
+    --brand-card: clamp(13px, 4vw, 18px);
+    gap: 6px;
+  }
+
+  .brand-words {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .brand-mascot {
+    height: 46px;
+    margin-block: -4px;
+  }
+
+  .brand-card::after { display: none; }
+
+  /* En partie à deux, l'état de la liaison prime sur le décor : la marque
+     cède la place qu'il faut à la pastille plutôt que de la pousser hors de
+     l'écran, et la mascotte se fait plus discrète. */
+  .topbar:has(.netchip:not([hidden])) .brand {
+    --brand-card: clamp(10px, 2.9vw, 14px);
+    gap: 4px;
+  }
+
+  .topbar:has(.netchip:not([hidden])) .brand-mascot {
+    height: 38px;
+    margin-block: -2px;
+  }
+}
+
+/* Les boutons ne cèdent jamais de place : c'est la pastille qui se resserre. */
+.topbar-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: var(--text-dim);
+  transition: background 0.15s, color 0.15s;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.thinking {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.thinking .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: bounce 1s infinite;
+}
+
+.thinking .dot:nth-child(2) { animation-delay: 0.15s; }
+.thinking .dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes bounce {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* --- Bandeau d'état ----------------------------------------------- */
+
+.status {
+  flex: none;
+  min-height: 1.35em;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status.win { color: var(--gold); }
+.status.warn { color: var(--danger); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.94rem;
+  transition: transform 0.1s, background 0.15s, opacity 0.15s;
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+}
+
+.btn-ghost {
+  background: var(--surface);
+  color: var(--text-dim);
+  padding: 0 12px;
+}
+
+.btn-ghost:hover:not(:disabled) { color: var(--text); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff6e6;
+}
+
+.btn-primary:hover:not(:disabled) { background: #d9533f; }
+
+.btn-small {
+  min-height: 38px;
+  font-size: 0.85rem;
+}
+/* --- Historique --------------------------------------------------- */
+
+.log-panel { flex: none; }
+
+.log-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 4px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.log-toggle svg {
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.log-title { flex: 1; text-align: left; }
+
+.log-toggle .chevron {
+  transition: transform 0.2s;
+}
+
+.log-toggle[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+}
+
+.log {
+  max-height: 27dvh;
+  margin: 0;
+  padding: 4px 0 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 0.82rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.log li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 9px;
+}
+
+.log li:nth-child(odd) { background: rgb(255 255 255 / 0.03); }
+
+.log .who {
+  flex: none;
+  width: 4.6em;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log .what { flex: 1; font-weight: 600; letter-spacing: 0.02em; }
+.log .what.muted { font-weight: 400; color: var(--text-dim); }
+.log .tag {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #fff6e6;
+  font-family: var(--display);
+  font-size: 0.66rem;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.log .pts { flex: none; font-variant-numeric: tabular-nums; color: var(--gold); }
+.log .pts.zero { color: var(--text-dim); }
+/* ------------------------------------------------------------------ */
+/* Feuilles modales                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Les fenêtres sont des feuilles de parchemin. Les couleurs de base y sont
+   redéfinies (encre brune sur papier) : tout ce qui s'appuie dessus bascule
+   sans règle dédiée. */
+.sheet {
+  --surface: rgb(90 60 25 / 0.07);
+  --surface-2: rgb(90 60 25 / 0.1);
+  --line: rgb(90 60 25 / 0.28);
+  --text: #2b1f12;
+  --text-dim: #6e5b42;
+  --valid: #2f7d55;
+  --gold: #9a7424;
+  --danger: #a8331f;
+
+  width: min(420px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  margin: auto;
+  padding: 24px 22px 16px;
+  border: 0;
+  border-radius: 3px;
+  background: linear-gradient(172deg, #f5ecd3 0%, #eee0bd 60%, #e6d4a8 100%);
+  color: var(--text);
+  /* Double filet d'encadrement, puis ombre portée sur la table. */
+  box-shadow:
+    inset 0 0 0 6px #f3e8cc,
+    inset 0 0 0 7px #b99a5b,
+    inset 0 0 40px rgb(120 80 30 / 0.18),
+    0 24px 60px rgb(0 0 0 / 0.6);
+}
+
+.sheet[open] {
+  animation: sheet-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+}
+
+.sheet::backdrop {
+  background: rgb(5 8 11 / 0.7);
+  backdrop-filter: blur(3px);
+}
+
+.sheet[open]::backdrop {
+  animation: fade-in 0.26s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+.sheet .level-option,
+.sheet .sheet-item,
+.letter-grid button {
+  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+}
+
+.sheet .sheet-item:active,
+.sheet .level-option:active {
+  transform: scale(0.98);
+}
+
+.sheet h2 {
+  margin: 0 0 16px;
+  font-family: var(--display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #7a2418;
+  text-align: center;
+}
+
+.sheet-text {
+  margin: 0 0 14px;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+}
+
+.sheet-item {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 8px;
+  padding: 0 16px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  text-align: left;
+  font-size: 0.94rem;
+  font-weight: 550;
+  transition: background 0.15s;
+}
+
+.sheet-item:hover { background: #26313e; }
+.sheet-item.danger { color: var(--danger); }
+
+.sheet .btn-ghost {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* --- Niveaux ------------------------------------------------------ */
+
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.level-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.level-option.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+}
+
+/* L'insigne remplace le chiffre ; le rang reste écrit à côté du nom. */
+.level-rank {
+  margin-left: 7px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.level-option.selected .level-rank { color: inherit; opacity: 0.75; }
+
+.level-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.level-option.selected .level-badge {
+  background: var(--accent);
+  color: #fff6e6;
+}
+
+.level-text { min-width: 0; }
+
+.level-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.level-blurb {
+  display: block;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Toast et chargement                                                 */
+/* ------------------------------------------------------------------ */
+
+.toast {
+  /* Au-dessus du chevalet : une notification ne doit jamais masquer le
+     bouton « Jouer » ni les jetons. */
+  position: fixed;
+  left: 50%;
+  bottom: calc(172px + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 70;
+  max-width: calc(100vw - 32px);
+  padding: 11px 18px;
+  border-radius: 6px;
+  background: #0f2a1e;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  font-size: 0.86rem;
+  text-align: center;
+  animation: rise 0.2s ease-out;
+}
+
+.toast.error { background: #6e2b23; }
+.toast.good { background: var(--valid-dark); }
+
+/* Coup optimal : le seul message doré du jeu, pour qu'il ne se confonde avec
+   aucun autre. Une seule pulsation — la félicitation doit rester une
+   respiration, pas un feu d'artifice. */
+.toast.best {
+  background: linear-gradient(180deg, #7a5a12, #5a4110);
+  border-color: #d8b25c;
+  color: #ffeec2;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow), 0 0 0 1px rgb(216 178 92 / 0.55), 0 0 18px rgb(216 178 92 / 0.28);
+  /* Une seule animation : `rise` et celle-ci pilotent toutes deux `transform`,
+     et la dernière déclarée écraserait l'autre. Celle-ci fait donc la montée
+     et la pulsation. */
+  animation: toast-best-pop 0.5s ease-out;
+}
+
+@keyframes toast-best-pop {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.94); }
+  45% { opacity: 1; transform: translate(-50%, 0) scale(1.045); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* ------------------------------------------------------------------ */
+/* Partie à deux                                                       */
+/* ------------------------------------------------------------------ */
+
+.netchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+  /* La pastille absorbe le manque de place au lieu de le répercuter : sans
+     quoi un libellé long — « Reconnexion… », un pseudo de dix-huit lettres —
+     pousse les boutons hors de l'écran. */
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+.netchip::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Le libellé se tronque, la pastille garde sa forme et sa pastille de
+   couleur : on voit toujours l'état, même sans lire le mot en entier. */
+.netchip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.netchip.live {
+  color: var(--valid);
+  border-color: color-mix(in srgb, var(--valid) 45%, transparent);
+}
+
+.netchip.live::before {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.netchip.lost {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+@keyframes pulse {
+  50% { opacity: 0.35; }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.field > span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.field input,
+.mp-join input {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.field input:focus-visible,
+.mp-join input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mp-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mp-join {
+  display: flex;
+  gap: 8px;
+}
+
+.mp-join input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.mp-join .btn {
+  flex: 0 0 auto;
+}
+
+.mp-label {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.mp-code {
+  margin: 0;
+  padding: 12px 8px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
+  font-family: var(--mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: var(--accent);
+  user-select: all;
+}
+
+.mp-status {
+  min-height: 1.2em;
+  margin: 0 0 12px;
+  font-size: 0.84rem;
+  color: var(--text-dim);
+}
+
+.mp-status.error {
+  color: var(--danger);
+}
+
+.mp-status.live {
+  color: var(--valid);
+}
+
+@media (max-width: 380px) {
+  .netchip {
+    display: none;
+  }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Structure                                                           */
+/* ------------------------------------------------------------------ */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 8px 10px calc(8px + var(--safe-bottom));
+}
+
+.infobar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: none;
+  padding: 0 4px;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.infobar strong {
+  font-family: var(--display);
+  font-size: 0.9rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.info-next { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.info-next.soon { color: var(--gold); }
+.info-hand { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ */
+/* Table                                                               */
+/* ------------------------------------------------------------------ */
+
+.table-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  container: table / size;
+}
+
+/* La table ovale occupe toute la place ; les sièges sont posés sur son
+   pourtour en pourcentages, le centre reçoit le tableau et le pot. */
+.felt {
+  --card-w: clamp(34px, min(13cqw, 9cqh), 64px);
+  position: absolute;
+  inset: 4px 2px;
+}
+
+.felt-rim {
+  position: absolute;
+  inset: 7% 6% 9%;
+  border-radius: 50% / 38%;
+  background:
+    radial-gradient(90% 70% at 50% 40%, rgb(255 255 255 / 0.07), transparent 70%),
+    linear-gradient(180deg, #1c5a3f 0%, #144631 100%);
+  box-shadow:
+    0 0 0 7px #5b3a1d,
+    0 0 0 9px #3a2410,
+    0 0 0 10px rgb(216 179 92 / 0.35),
+    0 18px 40px rgb(0 0 0 / 0.5),
+    inset 0 0 50px rgb(0 0 0 / 0.45);
+}
+
+/* Liseré intérieur, comme la ligne de mise des vraies tables. */
+.felt-rim::after {
+  content: '';
+  position: absolute;
+  inset: 11%;
+  border-radius: inherit;
+  border: 1px solid rgb(216 179 92 / 0.16);
+}
+
+.center {
+  position: absolute;
+  left: 50%;
+  top: 47%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 82%;
+  pointer-events: none;
+}
+
+.board {
+  display: flex;
+  justify-content: center;
+  gap: calc(var(--card-w) * 0.1);
+  min-height: calc(var(--card-w) * 1.4);
+}
+
+.board .slot {
+  width: var(--card-w);
+  height: calc(var(--card-w) * 1.4);
+  border-radius: calc(var(--card-w) * 0.1);
+  border: 1px dashed rgb(242 236 220 / 0.12);
+}
+
+.pot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px 3px 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.35);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.pot strong {
+  font-family: var(--display);
+  font-size: 0.98rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pot.bump strong { animation: pot-pop 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.5); }
+
+@keyframes pot-pop {
+  45% { transform: scale(1.25); color: var(--gold); }
+}
+
+.banner {
+  max-width: 100%;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgb(122 90 18 / 0.92), rgb(90 65 16 / 0.92));
+  border: 1px solid #d8b25c;
+  color: #ffeec2;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: var(--shadow);
+  animation: banner-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.banner small {
+  display: block;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.94); }
+}
+
+/* --- Jetons ------------------------------------------------------- */
+
+.chip-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--chip) 0 38%, transparent 40%),
+    repeating-conic-gradient(var(--chip) 0 30deg, #fff4d6 30deg 45deg);
+  box-shadow: 0 0 0 1.5px var(--chip-edge), 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+.bet {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 3px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.38);
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff4d6;
+  white-space: nowrap;
+  animation: bet-in 0.3s ease-out;
+}
+
+@keyframes bet-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+}
+
+.flying {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.fly-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.55s;
+}
+
+/* --- Sièges ------------------------------------------------------- */
+
+.seats {
+  position: absolute;
+  inset: 0;
+}
+
+.seat {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: clamp(76px, 25cqw, 116px);
+  transition: opacity 0.3s;
+}
+
+.seat-cards {
+  display: flex;
+  justify-content: center;
+  height: calc(var(--card-w) * 0.62 * 1.4);
+  margin-bottom: -10px;
+  z-index: 1;
+}
+
+.seat-cards .card {
+  --card-w: calc(var(--card-w-seat, 34px));
+}
+
+.seat-cards .card + .card { margin-left: -12px; }
+.seat-cards .card:first-child { transform: rotate(-6deg); }
+.seat-cards .card:last-child { transform: rotate(6deg); }
+
+.seat-plate {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  align-items: center;
+  width: 100%;
+  padding: 4px 8px 4px 4px;
+  border-radius: 999px;
+  background: rgb(8 20 14 / 0.86);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.4);
+  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+}
+
+.avatar {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--gold);
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 8%;
+  transform: scale(1.5) translateY(14%);
+}
+
+.seat-name {
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seat-stack {
+  font-family: var(--display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.seat-stack.bump { animation: pot-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.5); }
+
+.seat.active .seat-plate {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, rgb(8 20 14 / 0.9));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 4px 10px rgb(0 0 0 / 0.4);
+}
+
+.seat.folded { opacity: 0.45; }
+.seat.out { opacity: 0.28; }
+.seat.away .avatar { border-style: dashed; color: var(--danger); }
+
+.seat.winner .seat-plate {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgb(216 179 92 / 0.3), 0 0 22px rgb(216 179 92 / 0.35);
+}
+
+/* Temps de parole en ligne : une barre qui se vide sous le nom. */
+.clock {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: -5px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.dealer {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fbf6ea;
+  color: #1c1a17;
+  font-size: 0.62rem;
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+}
+
+.bubble {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  z-index: 4;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fbf6ea;
+  color: #2b1f12;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.45);
+  animation: bubble-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+.bubble.fold { background: #6b6358; color: #f2ecdc; }
+
+/* Sans cartes au-dessus, la bulle du joueur passerait sur son nom. */
+.seat.me .bubble { top: -24px; }
+.bubble.raise,
+.bubble.bet,
+.bubble.allin { background: var(--accent); color: #fff6e6; }
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: translate(-50%, 4px) scale(0.8); }
+}
+
+.hand-label {
+  max-width: 100%;
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--gold);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+}
+
+/* Le joueur lui-même : ses cartes sont en grand sous la table, son siège
+   n'y garde que la plaque. */
+.seat.me .seat-cards { display: none; }
+
+/* --- Cartes ------------------------------------------------------- */
+
+.card {
+  position: relative;
+  flex: none;
+  display: block;
+  width: var(--card-w);
+  height: calc(var(--card-w) * 1.4);
+  border-radius: calc(var(--card-w) * 0.1);
+  background: linear-gradient(170deg, #fffaf0 0%, var(--card) 70%, var(--card-edge) 100%);
+  color: var(--black-suit);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(0 0 0 / 0.07);
+  font-family: var(--display);
+  line-height: 1;
+  transition: filter 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+
+.card.red { color: var(--red-suit); }
+
+.card .rank {
+  position: absolute;
+  left: 9%;
+  top: 6%;
+  font-size: calc(var(--card-w) * 0.36);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.card .suit {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  transform: translate(-50%, -50%);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: calc(var(--card-w) * 0.62);
+}
+
+.card .corner {
+  position: absolute;
+  left: 11%;
+  top: 38%;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: calc(var(--card-w) * 0.22);
+}
+
+/* Dos : le rouge d'identité, un croisillon doré et un C au centre. */
+.card.back {
+  background:
+    radial-gradient(circle at 50% 50%, rgb(216 179 92 / 0.9) 0 16%, transparent 17%),
+    repeating-linear-gradient(45deg, rgb(216 179 92 / 0.22) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, rgb(216 179 92 / 0.22) 0 2px, transparent 2px 7px),
+    var(--card-back);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.45), inset 0 0 0 2px #fbf6ea, inset 0 0 0 3px rgb(216 179 92 / 0.6);
+}
+
+.card.back::after {
+  content: 'C';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: calc(var(--card-w) * 0.24);
+  font-weight: 800;
+  color: var(--card-back);
+}
+
+.card.dim { filter: brightness(0.55) saturate(0.6); }
+
+.card.win {
+  transform: translateY(-5px);
+  box-shadow: 0 0 0 2px var(--gold), 0 6px 14px rgb(216 179 92 / 0.45);
+}
+
+.card.deal { animation: card-deal 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.1) backwards; }
+
+@keyframes card-deal {
+  from { opacity: 0; transform: translateY(-18px) rotateY(90deg) scale(0.8); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Main du joueur et commandes                                         */
+/* ------------------------------------------------------------------ */
+
+.board-foot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  height: 22px;
+}
+
+.tray {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+.hand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 86px;
+  padding: 0 4px;
+}
+
+.my-cards {
+  --card-w: 60px;
+  display: flex;
+  gap: 6px;
+  flex: none;
+  min-width: 126px;
+}
+
+.my-cards .card:first-child { transform: rotate(-4deg); }
+.my-cards .card:last-child { transform: rotate(4deg); }
+.my-cards .card.win:first-child { transform: rotate(-4deg) translateY(-5px); }
+.my-cards .card.win:last-child { transform: rotate(4deg) translateY(-5px); }
+
+.my-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.my-hand {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.my-stack {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.my-stack strong {
+  font-family: var(--display);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  text-align: left;
+}
+
+.hint svg { width: 1.1em; height: 1.1em; }
+.hint.shown { color: var(--text); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+.hint .good { color: var(--valid); font-weight: 700; }
+.hint .bad { color: var(--danger); font-weight: 700; }
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr 1.25fr;
+  gap: 6px;
+}
+
+.actions-wait { grid-template-columns: 1fr; }
+
+.actions .btn {
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.btn .amount {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.22);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+#btn-fold { color: var(--danger); }
+
+.raise-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  animation: rise-in 0.2s ease-out;
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+.presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+  gap: 6px;
+}
+
+.presets button {
+  min-height: 34px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.presets button.selected {
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface-2));
+  color: var(--text);
+}
+
+.raise-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.raise-slider .step {
+  flex: none;
+  width: 36px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.raise-slider input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+  height: 28px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fenêtres propres au poker                                           */
+/* ------------------------------------------------------------------ */
+
+.sheet .card { --card-w: 26px; }
+
+.field-title {
+  margin: 0 0 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.segmented button {
+  min-height: 42px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.segmented button.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+  color: #7a2418;
+}
+
+.sheet-item.primary {
+  background: var(--accent);
+  color: #fff6e6;
+  text-align: center;
+  font-weight: 650;
+}
+
+.sheet-item.primary:hover { background: #d9533f; }
+
+.lobby,
+.standings,
+.ranks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lobby li,
+.standings li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 0.9rem;
+}
+
+.lobby .tag,
+.standings .tag {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.lobby .remove {
+  margin-left: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.standings .place {
+  width: 1.8em;
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.standings .me { border: 1px solid var(--gold); }
+
+.lobby-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ranks { margin-bottom: 14px; gap: 4px; }
+
+.ranks li {
+  display: grid;
+  grid-template-columns: 1.4em 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 0.84rem;
+}
+
+.ranks .n { font-family: var(--display); font-weight: 700; color: var(--gold); }
+.ranks .what { font-weight: 600; }
+.ranks .what small { display: block; font-weight: 400; font-size: 0.72rem; color: var(--text-dim); }
+.ranks .cards { display: flex; gap: 2px; }
+
+/* ------------------------------------------------------------------ */
+/* Grand écran                                                         */
+/* ------------------------------------------------------------------ */
+
+@media (min-width: 900px) and (min-height: 640px) {
+  .app {
+    max-width: min(1320px, 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 340px);
+    grid-template-rows: auto auto 1fr auto auto;
+    grid-template-areas:
+      'top    side'
+      'info   side'
+      'table  side'
+      'foot   side'
+      'tray   side';
+    column-gap: 22px;
+    row-gap: 8px;
+    padding: 16px;
+  }
+
+  .topbar { grid-area: top; }
+  .infobar { grid-area: info; }
+  .table-wrap { grid-area: table; }
+  .board-foot { grid-area: foot; }
+  .tray { grid-area: tray; width: min(640px, 100%); justify-self: center; }
+
+  .log-panel {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    padding: 14px;
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .log-toggle {
+    flex: none;
+    padding: 0 0 8px;
+    font-family: var(--display);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    pointer-events: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .log-toggle .chevron { display: none; }
+
+  .log {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .log[hidden] { display: block !important; }
+  .log .who { width: 5.6em; }
+
+  .my-cards { --card-w: 72px; min-width: 150px; }
+}

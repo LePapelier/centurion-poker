@@ -1,0 +1,20 @@
+{
+  "name": "centurion-poker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Texas hold'em contre des IA à cinq niveaux, ou entre amis en liaison directe.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.js",
+    "simulate": "node tools/simulate.mjs"
+  },
+  "devDependencies": {
+    "vite": "^7.3.6"
+  },
+  "dependencies": {
+    "peerjs": "^1.5.5"
+  }
+}

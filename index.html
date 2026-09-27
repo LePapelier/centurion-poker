@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="theme-color" content="#0b2419" />
+    <meta name="description" content="Texas hold'em contre des adversaires à cinq niveaux, ou entre amis en liaison directe. Jouable hors ligne." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>Centurion Poker</title>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <h1 class="brand" aria-label="Centurion Poker">
+          <img class="brand-mascot" src="./centurion.webp" alt="" width="200" height="264" decoding="async" />
+          <span class="brand-words">
+            <span class="brand-word">
+              <span class="brand-card" data-s="♥">C</span>
+              <span class="brand-card" data-s="♦">E</span>
+              <span class="brand-card" data-s="♥">N</span>
+              <span class="brand-card" data-s="♦">T</span>
+              <span class="brand-card" data-s="♥">U</span>
+              <span class="brand-card" data-s="♦">R</span>
+              <span class="brand-card" data-s="♥">I</span>
+              <span class="brand-card" data-s="♦">O</span>
+              <span class="brand-card" data-s="♥">N</span>
+            </span>
+            <span class="brand-word">
+              <span class="brand-card" data-s="♠">P</span>
+              <span class="brand-card" data-s="♣">O</span>
+              <span class="brand-card" data-s="♠">K</span>
+              <span class="brand-card" data-s="♣">E</span>
+              <span class="brand-card" data-s="♠">R</span>
+            </span>
+          </span>
+        </h1>
+        <span class="netchip" id="netchip" hidden></span>
+        <div class="topbar-actions">
+          <button type="button" class="icon-button" id="btn-ranks" aria-label="Classement des mains">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="11" height="16" rx="2" /><path d="M17 6.5 20.5 8a1.6 1.6 0 0 1 .8 2.1l-4.3 9.6" /><path d="M8.5 9.5v5M6 12h5" /></svg>
+          </button>
+          <button type="button" class="icon-button" id="btn-multi" aria-label="Jouer en ligne">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="3.2" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.5a4 4 0 0 1 0 7.5" /></svg>
+          </button>
+          <button type="button" class="icon-button" id="btn-new" aria-label="Nouvelle partie">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="infobar" aria-label="Blinds">
+        <span class="info-blinds">Blinds <strong id="info-blinds">10/20</strong></span>
+        <span class="info-next" id="info-next"></span>
+        <span class="info-hand" id="info-hand"></span>
+      </section>
+
+      <div class="table-wrap">
+        <div class="felt" id="felt" aria-label="Table de jeu">
+          <div class="felt-rim"></div>
+          <div class="center">
+            <div class="board" id="board" aria-label="Cartes communes"></div>
+            <div class="pot" id="pot" hidden>
+              <span class="chip-icon" aria-hidden="true"></span>
+              <span class="pot-label">Pot</span>
+              <strong id="pot-value">0</strong>
+            </div>
+            <div class="banner" id="banner" hidden></div>
+          </div>
+          <div class="seats" id="seats"></div>
+          <div class="flying" id="flying" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <div class="board-foot">
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+        <div class="thinking" id="thinking" hidden>
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="thinking-label" id="thinking-label">L’adversaire réfléchit</span>
+        </div>
+      </div>
+
+      <section class="tray">
+        <div class="hand-row">
+          <div class="my-cards" id="my-cards" aria-label="Vos cartes"></div>
+          <div class="my-info">
+            <span class="my-hand" id="my-hand"></span>
+            <button type="button" class="hint" id="btn-hint" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6" /><path d="M10 22h4" /><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z" /></svg>
+              <span id="hint-text">Mes chances</span>
+            </button>
+            <span class="my-stack" id="my-stack"></span>
+          </div>
+        </div>
+
+        <div class="raise-panel" id="raise-panel" hidden>
+          <div class="presets" id="presets"></div>
+          <div class="raise-slider">
+            <button type="button" class="step" id="raise-less" aria-label="Moins">−</button>
+            <input type="range" id="raise-range" min="0" max="100" step="1" aria-label="Montant de la relance" />
+            <button type="button" class="step" id="raise-more" aria-label="Plus">+</button>
+          </div>
+        </div>
+
+        <div class="actions" id="actions">
+          <button type="button" class="btn btn-ghost" id="btn-fold">Se coucher</button>
+          <button type="button" class="btn btn-ghost" id="btn-call">Parole</button>
+          <button type="button" class="btn btn-primary" id="btn-raise">Relancer</button>
+        </div>
+        <div class="actions actions-wait" id="actions-wait" hidden>
+          <button type="button" class="btn btn-ghost" id="btn-next">Main suivante</button>
+        </div>
+      </section>
+
+      <section class="log-panel">
+        <button type="button" class="log-toggle" id="log-toggle" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" /></svg>
+          <span class="log-title">Historique</span>
+          <span class="chevron" aria-hidden="true">▾</span>
+        </button>
+        <ol class="log" id="log" hidden></ol>
+      </section>
+    </div>
+
+    <!-- Nouvelle partie -->
+    <dialog class="sheet" id="new-dialog" aria-label="Nouvelle partie">
+      <h2>Nouvelle partie</h2>
+      <p class="sheet-text" id="new-warning" hidden>La partie en cours sera perdue.</p>
+      <p class="field-title">Adversaires</p>
+      <div class="segmented" id="opponents" role="radiogroup" aria-label="Nombre d’adversaires"></div>
+      <p class="field-title">Niveau</p>
+      <div class="levels" id="levels"></div>
+      <button type="button" class="sheet-item primary" id="new-confirm">Prendre place</button>
+      <button type="button" class="btn btn-ghost" id="new-cancel">Annuler</button>
+    </dialog>
+
+    <!-- Table en ligne -->
+    <dialog class="sheet" id="mp-dialog" aria-label="Jouer en ligne">
+      <h2>Jouer en ligne</h2>
+      <p class="sheet-text" id="mp-intro">
+        Jusqu’à six joueurs, reliés directement, sans serveur de jeu.
+        Gardez cet onglet ouvert pendant toute la partie.
+      </p>
+
+      <label class="field" id="mp-name-field">
+        <span>Votre pseudo</span>
+        <input type="text" id="mp-name" maxlength="18" autocomplete="nickname" placeholder="Pseudo" />
+      </label>
+
+      <div class="mp-block" id="mp-choice">
+        <button type="button" class="sheet-item" id="mp-create">Ouvrir une table</button>
+        <div class="mp-join">
+          <input
+            type="text"
+            id="mp-code"
+            maxlength="6"
+            placeholder="CODE"
+            autocapitalize="characters"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Code de la table à rejoindre"
+          />
+          <button type="button" class="btn btn-small btn-primary" id="mp-join">Rejoindre</button>
+        </div>
+      </div>
+
+      <div class="mp-block" id="mp-invite" hidden>
+        <p class="mp-label">Transmettez ce code aux autres joueurs</p>
+        <p class="mp-code" id="mp-code-value">------</p>
+        <button type="button" class="sheet-item" id="mp-copy">Copier le lien d’invitation</button>
+      </div>
+
+      <div class="mp-block" id="mp-lobby" hidden>
+        <p class="mp-label" id="mp-lobby-title">À la table</p>
+        <ol class="lobby" id="lobby"></ol>
+        <div class="lobby-actions" id="lobby-host">
+          <button type="button" class="btn btn-small btn-ghost" id="mp-add-ai">+ Une IA</button>
+          <button type="button" class="btn btn-small btn-primary" id="mp-start">Lancer la partie</button>
+        </div>
+      </div>
+
+      <p class="mp-status" id="mp-status" role="status" aria-live="polite"></p>
+
+      <button type="button" class="sheet-item danger" id="mp-leave" hidden>Quitter la table en ligne</button>
+      <button type="button" class="btn btn-ghost" id="mp-close">Fermer</button>
+    </dialog>
+
+    <!-- Classement des mains -->
+    <dialog class="sheet" id="ranks-dialog" aria-label="Classement des mains">
+      <h2>Classement des mains</h2>
+      <ol class="ranks" id="ranks"></ol>
+      <button type="button" class="btn btn-ghost" id="ranks-close">Fermer</button>
+    </dialog>
+
+    <!-- Fin de partie -->
+    <dialog class="sheet" id="end-dialog" aria-label="Fin de partie">
+      <h2 id="end-title">Partie terminée</h2>
+      <p class="sheet-text" id="end-detail"></p>
+      <ol class="standings" id="end-standings"></ol>
+      <button type="button" class="sheet-item primary" id="end-again">Rejouer</button>
+      <button type="button" class="btn btn-ghost" id="end-close">Voir la table</button>
+    </dialog>
+
+    <div class="toast" id="toast" role="alert" hidden></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
