@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Carte C, enseigne pique. Tout est tracé plutôt qu'écrit : un <text>
+       prendrait la police de l'appareil, dont les proportions varient. -->
   <rect x="8" y="2" width="48" height="60" rx="7" fill="#f6eedb" />
   <rect x="10.5" y="4.5" width="43" height="55" rx="5" fill="none" stroke="#d9c9a3" stroke-width="1.5" />
-  <text x="32" y="42" text-anchor="middle" font-family="Georgia, serif" font-size="34" font-weight="800" fill="#b8322a">C</text>
-  <text x="46" y="56" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#1c1a17">♠</text>
+  <path d="M39.1 22.3 A10.5 10.5 0 1 0 39.1 37.7" fill="none" stroke="#b8322a" stroke-width="6" />
+  <g transform="translate(40.5 44.5) scale(0.42)" fill="#1c1a17">
+    <path d="M12 2c-2.5 3.5-9 7.5-9 12a4.8 4.8 0 0 0 8.2 3.4L10 21h4l-1.2-3.6A4.8 4.8 0 0 0 21 14c0-4.5-6.5-8.5-9-12Z" />
+  </g>
 </svg>
